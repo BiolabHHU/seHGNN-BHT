@@ -1,12 +1,5 @@
 import numpy as np
-import scipy.io as scio
-import math
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.parameter import Parameter
 from torch import nn
-from models import HGNN
 
 '''
 def feature_concat(*F_list, normal_col=False):
@@ -30,6 +23,7 @@ def feature_concat(*F_list, normal_col=False):
         features = features / features_max
     return features
 '''
+
 
 def distance(x):
 
@@ -81,7 +75,6 @@ def generate_G_from_H(H, variable_weight=True):
         return DV2_H, W, invDE_HT_DV2
 
 def _generate_G_from_H(H, variable_weight=True):
-    # H = np.array(H)
     n_edge = H.shape[1]
     # the weight of the hyperedge
     W = np.ones(n_edge)
@@ -99,7 +92,7 @@ def _generate_G_from_H(H, variable_weight=True):
     if variable_weight:
         DV2_H_invDE= DV2 * H * invDE
         invDE_HT_DV2 = invDE * HT * DV2
-        return DV2_H_invDE, W, invDE_HT_DV2            # DV2_H, W, invDE_HT_DV2
+        return DV2_H_invDE, W, invDE_HT_DV2
     else:
         G = DV2 * H * W * invDE * HT * DV2
         return G
@@ -107,35 +100,15 @@ def _generate_G_from_H(H, variable_weight=True):
 class compute_G(nn.Module):
     def __init__(self, W):
         super(compute_G, self).__init__()
-        #self.W_diag = W
-        #self.W_diag = torch.diag_embed(self.W_diag)
-        #self.W_diag = torch.squeeze(self.W_diag)
-
         self.W = W
-        # self.W = Parameter(F.softmax(self.W, dim=2))
-        #self.W = torch.diag_embed(self.W)
-        #self.W = Parameter(torch.squeeze(self.W))
-
-        #self.W0 = Parameter(torch.ones(286, 1, 10))
-        #self.W0 = Parameter(torch.diag_embed(self.W0))
-        #self.W0 = Parameter(torch.squeeze(self.W0))
 
     def forward(self, DV2_H_invDE, invDE_HT_DV2, H):
         W = self.W
-        #W = F.softmax(self.W, dim=2)
-        #W = torch.diag_embed(W)
-        #W = torch.squeeze(W)
-
-        #W_diag =  torch.add(self.W_diag, self.W)
         invDE_HT_DV2 = invDE_HT_DV2
-        HW = H.matmul(W)                                 # torch.bmm(H,W)
-        #G = DV2_H_invDE.matmul((W+W.T)/2)
+        HW = H.matmul(W)
         G = DV2_H_invDE.matmul(W)
         G = G.matmul(W.T)
         G = G.matmul(invDE_HT_DV2)
-        # G0 = torch.bmm(DV2_H, W)
-        # G0 = torch.bmm(G0, invDE_HT_DV2)
-        # G0 = torch.bmm(self.W0, G0)
 
         return G, HW, W
 

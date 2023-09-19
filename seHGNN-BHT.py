@@ -8,8 +8,6 @@ import os
 import torch.optim as optim
 import random
 from hypergraph_construct import distance, hypergraph_construct, generate_G_from_H, _generate_G_from_H
-import matplotlib.pyplot as plt
-import pandas as pd
 
 eng = matlab.engine.start_matlab()
 
@@ -21,14 +19,12 @@ parser.add_argument("--milestone", type=int, default=30, help="When to decay lea
 parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
 opt = parser.parse_args()
 
-# net.apply(weights_init_kaiming)
 ctr_mse = nn.MSELoss(reduction='mean')
 ctr_mse.cuda()
 ctr_entropy = nn.CrossEntropyLoss()
 ctr_entropy.cuda()
 
 device_ids = [0]
-
 def prepare_data(index):
 
     train_h0_data, train_h0_label, train_h1_data, train_h1_label, test_h0_label, test_h1_label, testlabel = eng.svm_two_class(index, nargout=7)
@@ -43,12 +39,10 @@ def prepare_data(index):
     num_h0 = train_h0_label.sum()  # ADHD subjects in h0 hypothesis
     num_h1 = train_h1_label.sum()  # ADHD subjects in h1 hypothesis
 
-    #train_h0_data = train_h0_data[:,:30]
     train_h0_data = np.reshape(train_h0_data, (99, 3, 10))
-    train_h0_data = train_h0_data.transpose((0,2,1))
-    #train_h1_data = train_h1_data[:,:30]
+    train_h0_data = train_h0_data.transpose((0, 2, 1))
     train_h1_data = np.reshape(train_h1_data, (99, 3, 10))
-    train_h1_data = train_h1_data.transpose((0,2,1))
+    train_h1_data = train_h1_data.transpose((0, 2, 1))
 
     K_neigs = [3]
 
@@ -105,15 +99,13 @@ def train_h0(train_data, DV2_H_invDE, H, invDE_HT_DV2, train_label, print_inform
 
         for param_group in optimizer.param_groups:
             param_group["lr"] = current_lr
-        # print('learning rate %f' % current_lr)
-        # train
+
         loss_sum = 0
 
         optimizer.zero_grad()
         z, p, _, _, W_sparse0,w0 = model(train_data, DV2_H_invDE, invDE_HT_DV2, H)
 
-        loss = ctr_mse(z, train_data) + ctr_entropy(p, train_label) #+ ctr_mse(W_sparse0, W_sparse0.T) * 100
-
+        loss = ctr_mse(z, train_data) + ctr_entropy(p, train_label)
 
         loss_sum += loss.item()
 
@@ -122,18 +114,16 @@ def train_h0(train_data, DV2_H_invDE, H, invDE_HT_DV2, train_label, print_inform
 
     model.eval()
 
-    with torch.no_grad():  # this can save much memory
+    with torch.no_grad():
         z, p, y, HW, Wh_sparse0, w0 = model(train_data, DV2_H_invDE, invDE_HT_DV2, H)
     pass
 
     return y, train_label, HW, Wh_sparse0, w0
 
-
-
 def train_h1(train_data, DV2_H_invDE, H, invDE_HT_DV2, train_label, print_information=False):
 
     train_data = torch.Tensor(train_data).float().cuda()
-    DV2_H_invDE = np.array(DV2_H_invDE)                                                # matrix to ndarray
+    DV2_H_invDE = np.array(DV2_H_invDE)
     H = np.array(H)
     invDE_HT_DV2 = np.array(invDE_HT_DV2)
     DV2_H_invDE = torch.Tensor(DV2_H_invDE).float().cuda()
@@ -158,14 +148,13 @@ def train_h1(train_data, DV2_H_invDE, H, invDE_HT_DV2, train_label, print_inform
 
         for param_group in optimizer.param_groups:
             param_group["lr"] = current_lr
-        # print('learning rate %f' % current_lr)
-        # train
+
         loss_sum = 0
 
         optimizer.zero_grad()
         z, p, _, _, W_sparse1,w1 = model(train_data, DV2_H_invDE, invDE_HT_DV2, H)
 
-        loss = ctr_mse(z, train_data) + ctr_entropy(p, train_label) #+ ctr_mse(W_sparse1, W_sparse1.T) * 100
+        loss = ctr_mse(z, train_data) + ctr_entropy(p, train_label)
 
         loss_sum += loss.item()
 
@@ -174,13 +163,11 @@ def train_h1(train_data, DV2_H_invDE, H, invDE_HT_DV2, train_label, print_inform
 
     model.eval()
 
-    with torch.no_grad():  # this can save much memory
+    with torch.no_grad():
         z, p, y, HW, Wh_sparse1, w1 = model(train_data, DV2_H_invDE, invDE_HT_DV2, H)
     pass
 
     return y, train_label, HW, Wh_sparse1, w1
-
-
 
 def judge2(y_h0_x, h0_label, y_h1_x, h1_label, num_h0, num_h1):
     if h0_label is None:
@@ -189,7 +176,7 @@ def judge2(y_h0_x, h0_label, y_h1_x, h1_label, num_h0, num_h1):
 
     # h0
     yh0_np = np.array(y_h0_x)  # deeper feature in h0
-    yh0_np = np.reshape(yh0_np,(99,30))
+    yh0_np = np.reshape(yh0_np, (99, 30))
     yh0_AD = np.split(yh0_np, (num_h0,))
     yh0_AD = np.array(yh0_AD)
     yh0_HC = np.copy(yh0_AD)
@@ -221,9 +208,9 @@ def judge2(y_h0_x, h0_label, y_h1_x, h1_label, num_h0, num_h1):
     yh1_HC = np.delete(yh1_HC, 0, axis=0)[0]
 
     # inter- and intra-class distance
-    yh1_AD_avg = np.mean(yh1_AD, axis=(0,))  # h1 ADHD均值
-    yh1_HC_avg = np.mean(yh1_HC, axis=(0,))  # h1 HC均值
-    yh1_all_avg = np.mean(yh1_np, axis=(0,))  # 总均值
+    yh1_AD_avg = np.mean(yh1_AD, axis=(0,))
+    yh1_HC_avg = np.mean(yh1_HC, axis=(0,))
+    yh1_all_avg = np.mean(yh1_np, axis=(0,))
 
     yh1_intra_AD = np.sum(np.power(np.linalg.norm((yh1_AD - yh1_AD_avg), axis=1, keepdims=True).flatten(), 2))
     yh1_intra_HC = np.sum(np.power(np.linalg.norm((yh1_HC - yh1_HC_avg), axis=1, keepdims=True).flatten(), 2))
@@ -250,8 +237,6 @@ def train():
     AD2HC = 0
     pred_tyb = []    # predicted label by authors' method
     pred_real = []   # ground truth label
-    W_true = []
-    W_value = []
 
     for i in range(dict_data[name_of_data]):
 
@@ -288,11 +273,9 @@ def train():
                 AD2HC += 1
                 pred_tyb.append(0)
 
-
         print('\n current loop:' + str(i + 1) + ' / ' + str(dict_data[name_of_data]) + '-------------')
         print('-------------' + str(j_out + 1) + ' / ' + '50' + '-------------\n')
         print('current accuracy: ' + str(k) + '/' + str(i + 1))
-
 
     tyb1 = 'AD2AD: {}, AD2HC: {}, HC2HC: {}, HC2AD: {}'
     print(tyb1.format(AD2AD, AD2HC, HC2HC, HC2AD))
@@ -312,7 +295,6 @@ def train():
     print('6 AUC:{}'.format(AUC))
     print(name_of_data)
 
-
     results_txt = str(AD2AD) + '\t' + str(AD2HC) + '\t' + str(HC2HC) + '\t' + str(HC2AD) + '\t' + str(
         100 * k / dict_data[name_of_data]) + '\t' + str(100 * AD2AD / (AD2AD + AD2HC)) + '\t' + str(
         100 * HC2HC / (HC2AD + HC2HC)) + '\t' + str(100 * AD2AD / (AD2AD + HC2AD)) + '\t' + str(
@@ -324,7 +306,6 @@ def train():
     with open('./ensemble/' + name_of_data + '.txt', "a+") as f:
         f.write(str(pred_tyb) + '\n')
     '''
-
 
 if __name__ == '__main__':
     name_list = ['ADS18', 'Peking_data', 'KKI_data', 'NI_data', 'Peking_1_data']
